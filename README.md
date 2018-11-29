@@ -2,12 +2,12 @@
 
 Data Science Project CSE 519
 Monopoly game playing AI Agent
-Done by Team 007
+Done by Team 084
 
 Team Members:
-Pragesh Jagnani
-Sanjay Mathew Thomas
-Varun Hegde
+Shalini Bhaskara
+Swetha T 
+Mohan Gandhi
 
 ## Install the Dependencies
 
