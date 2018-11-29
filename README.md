@@ -5,10 +5,11 @@ Monopoly game playing AI Agent
 Done by Team 084
 
 Team Members:
-Shalini Bhaskara \n
-Swetha T \n
-Mohan Gandhi \n
-
+'''
+Shalini Bhaskara 
+Swetha T 
+Mohan Gandhi 
+'''
 ## Install the Dependencies
 
 ```
