@@ -1,7 +1,6 @@
 import gym
 import sys
 sys.path.append("/Users/tswetha/dsf-project/gym-rl")
-import gym_rl
 env=gym.make("rl-v0")
 
 class Agent2:
@@ -12,16 +11,16 @@ class Agent2:
         return env.getBMST(state)
 
     def respondTrade(self, state):
-        pass
+        return env.respondTrade(state)
 
     def buyProperty(self, state):
-        pass
+        return env.respondTrade(state)
 
     def auctionProperty(self, state):
-        pass
+        return env.auctionProperty(state)
 
     def jailDecision(self, state):
-        pass
+        return env.jailDecision(state)
 
     def receiveState(self, state):
         pass
