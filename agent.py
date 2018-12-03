@@ -18,41 +18,39 @@ class State(object):
 
 
 class Agent(object):
-#TODO :: time out decorator
-    def __init__(self, id=0):
+    #TODO :: time out decorator
+    def __init__(self, id):
         self.my_streets = OrderedDict({
             "Orange": {},
             "Red": {},
             "Yellow": {},
             "Light Blue": {},
-            "Brown": {},  # key is id value is (builcost,num houses,price)
+            "Brown": {},  # key is id value is (buildcost, num houses, price)
             "Green": {},
             "Dark Blue": {},
             "Pink": {}
         })
-        self.id = id  # Player 1 -> id=1, Player 2 ->id=2
+        self.id = id  # Player 1 -> id=1, Player 2 -> id=2
         self.utilities = {}
         self.rail_roads = {}  # id:price
         self.monopoly_set = set()
         self.build_buffer_cap = 500
         self.unmortgage_cap = 300
-
         self.buying_limit = 300
         self.mortagaged_cgs = []  # tuple of color, id, unmortgage price
-
         self.preference_order = {"Orange": 0,
                                  "Red": 1,
                                  "Yellow": 2,
                                  "Light Blue": 3,
-                                 "Brown": 4,  # key is id value is (builcost,num houses,price)
+                                 "Brown": 4,
                                  "Green": 5,
                                  "Dark Blue": 6,
                                  "Pink": 7
                                  }
+
     @staticmethod
     def get_turns_left(stateobj):
         return 99 - stateobj.turn
-
 
     def get_other_agent(self):
         if self.id == 1:
@@ -76,7 +74,7 @@ class Agent(object):
         # sell
         self.sell_house(state)
 
-        # mortagage
+        # mortgage
         # trade
 
     def update_my_properties(self, state):
@@ -232,9 +230,6 @@ class Agent(object):
         cash_left = state.my_cash - self.unmortgage_cap
         for color, id, price in sorted(self.mortagaged_cgs, key=lambda x: self.preference_order[x[0]]):
             if cash_left > price:
-
-
-
                 cash_left -= price
                 unmortgage_result.append(id)
             else:
