@@ -30,7 +30,7 @@ class Agent(object):
                                         "Dark Blue" : {},
                                         "Pink" : {}
                                         })
-        self.buying_limit = 300
+        self.build_buffer_cap = 500
 
     def get_state_object(self,state):
         return State(state,self.id)
@@ -50,7 +50,7 @@ class Agent(object):
 
         :return: returns a list of properties,num houses to build
         """
-        cash_left = state.my_cash - self.buying_limit
+        cash_left = state.my_cash - self.build_buffer_cap
         result_dict = Counter()
         self.update_my_streets(state)
         for key,value in self.my_streets.items():
