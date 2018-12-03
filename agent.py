@@ -6,7 +6,7 @@ class State(object):
     def __init__(self, state, my_id):
         opponent_id = 2 if id == 1 else 1
         self.turn = state[0]
-        self.player_properties = state[1]
+        self.player_properties = state[1][:-2]
         self.my_position = state[2][my_id]
         self.opponent_position = state[2][opponent_id]
         self.my_cash = state[3][my_id]
@@ -45,7 +45,8 @@ class Agent(object):
                                  "Brown": 4,
                                  "Green": 5,
                                  "Dark Blue": 6,
-                                 "Pink": 7
+                                 "Pink": 7,
+                                 "Railroad":8
                                  }
 
     @staticmethod
@@ -65,17 +66,37 @@ class Agent(object):
         # preprocesing
         state = self.get_state_object(state)
         self.update_my_properties(state)
-        # TODO : bsmt decision making and debt should always clear
-        # debt to do
-        if self.monopoly_set and not self.debt:
-            # build
-            self.build_house(state)
+        if state.debt ==0:
+            if self.mortagaged_cgs:
+                lst_properties = self.unmortgage_property(state)
+                if lst_properties:
+                    return ("M",lst_properties)
+                else:
+                    if self.monopoly_set:
+                        lst_houses = self.build_house(state)
+                        if lst_houses:
+                            return ("B",lst_houses)
+                    # TODO : if lst_houses is empty launch fake deal
+            else:
+                if self.monopoly_set:
+                    lst_properties = self.build_house(state)
+                    if lst_properties:
+                        return ("B", lst_properties)
+                else:
+                    lst_houses = self.unmortgage_property(state)
+                    if lst_houses:
+                        return ("M", lst_houses)
+                # TODO : if lst_houses is empty launch fake deal
 
-        # sell
+        else:
+        # TODO : bsmt decision making and debt should always clear choose sell  or martagage accordingly
+        #sell
         self.sell_house(state)
+        #TODO : restore state if you are switching
+        #mortagage
+        self.mortagage_properties(state)
+        #TODO : bydefult launch fake deal to win in the last case
 
-        # mortgage
-        # trade
 
     def update_my_properties(self, state):
         for id, property in enumerate(state.player_properties):
@@ -196,6 +217,7 @@ class Agent(object):
         # sell rail road
         marker = []
         for id, price in self.rail_roads.items():
+            self.mortagaged_cgs.append(("Railroad",id,price*0.55))
             mortagage_properties_result.append(id)
             debt_left -= 0.5 * price
             marker.append(id)
@@ -234,9 +256,22 @@ class Agent(object):
                 unmortgage_result.append(id)
             else:
                 return unmortgage_result
-        num_turn_left = self.get_turns_left()
+
+        #unmortgage all other properties if u have turns
+        num_turn_left = self.get_turns_left(state)
         if cash_left and num_turn_left > 20:
-            pass
+            for id,property in enumerate(state.player_properties):
+                # TODO :: unmortagage in preference order
+                if (self.id == 1 and property == 7) or (self.id == 2 and property == -7):
+                    square_obj = board[id]
+                    price = square_obj["price"] * 0.55
+                    if cash_left > price:
+                        cash_left -= price
+                        unmortgage_result.append(id)
+                    else:
+                        return unmortgage_result
+        else:
+            return unmortgage_result
 
 
     def sell_house(self, state):
