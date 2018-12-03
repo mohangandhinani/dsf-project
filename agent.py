@@ -18,30 +18,41 @@ class State(object):
 
 
 class Agent(object):
-    # TO DO : timeout decorator
-    def __init__(self, id):
-        self.id = id  # Player 1 -> id=1, Player 2 -> id=2
+#TODO :: time out decorator
+    def __init__(self, id=0):
         self.my_streets = OrderedDict({
-            "Brown": {},
-            "Light Blue": {},  # key is property id value is (buildcost, num houses, price)
-            "Green": {},
+            "Orange": {},
             "Red": {},
             "Yellow": {},
-            "Orange": {},
+            "Light Blue": {},
+            "Brown": {},  # key is id value is (builcost,num houses,price)
+            "Green": {},
             "Dark Blue": {},
             "Pink": {}
         })
+        self.id = id  # Player 1 -> id=1, Player 2 ->id=2
         self.utilities = {}
         self.rail_roads = {}  # id:price
         self.monopoly_set = set()
         self.build_buffer_cap = 500
         self.unmortgage_cap = 300
+
         self.buying_limit = 300
         self.mortagaged_cgs = []  # tuple of color, id, unmortgage price
 
+        self.preference_order = {"Orange": 0,
+                                 "Red": 1,
+                                 "Yellow": 2,
+                                 "Light Blue": 3,
+                                 "Brown": 4,  # key is id value is (builcost,num houses,price)
+                                 "Green": 5,
+                                 "Dark Blue": 6,
+                                 "Pink": 7
+                                 }
     @staticmethod
     def get_turns_left(stateobj):
         return 99 - stateobj.turn
+
 
     def get_other_agent(self):
         if self.id == 1:
@@ -58,7 +69,7 @@ class Agent(object):
         self.update_my_properties(state)
         # TODO : bsmt decision making and debt should always clear
         # debt to do
-        if self.monopoly_set and not debt:
+        if self.monopoly_set and not self.debt:
             # build
             self.build_house(state)
 
@@ -124,7 +135,7 @@ class Agent(object):
         # check for street which is not CG
         marker = []
         for color, value in self.my_streets.items():
-            if color not in self.monopoly_set :
+            if color not in self.monopoly_set:
                 for id, tup in value.items():
                     if tup[1] != 0:
                         continue
@@ -168,25 +179,25 @@ class Agent(object):
             del self.utilities[id]
         if debt_left <= 0:
             return mortagage_properties_result
-        #single street property
+        # single street property
         marker = []
-        for color,dct in self.my_streets.items()[::-1]:
-            if len(dct)==1:
+        for color, dct in self.my_streets.items()[::-1]:
+            if len(dct) == 1:
                 id = dct.keys()[0]
                 if dct[id][1] != 0:
                     continue
                 mortagage_properties_result.append(id)
                 debt_left -= 0.5 * int(dct[id][2])
-                marker.append((color,id))
+                marker.append((color, id))
                 if debt_left < 0:
                     break
-        for color,id in marker:
+        for color, id in marker:
             del self.my_streets[color][id]
         if debt_left <= 0:
             return mortagage_properties_result
         # sell rail road
         marker = []
-        for id,price in self.rail_roads.items():
+        for id, price in self.rail_roads.items():
             mortagage_properties_result.append(id)
             debt_left -= 0.5 * price
             marker.append(id)
@@ -196,10 +207,10 @@ class Agent(object):
             del self.rail_roads[id]
         if debt_left <= 0:
             return mortagage_properties_result
-        #sell all street properties
+        # sell all street properties
         marker = []
         for color, dct in self.my_streets.items()[::-1]:
-            for id,tup in dct.items():
+            for id, tup in dct.items():
                 if dct[id][1] != 0:
                     continue
                 mortagage_properties_result.append(id)
@@ -209,7 +220,7 @@ class Agent(object):
                     break
         for color, id in marker:
             if color in self.monopoly_set:
-                self.mortagaged_cgs.append((color,id,self.my_streets[color][id][2]*0.55))
+                self.mortagaged_cgs.append((color, id, self.my_streets[color][id][2] * 0.55))
                 self.monopoly_set.remove(color)
             del self.my_streets[color][id]
         if debt_left <= 0:
@@ -219,9 +230,19 @@ class Agent(object):
     def unmortgage_property(self, state):
         unmortgage_result = []
         cash_left = state.my_cash - self.unmortgage_cap
-        for color,id,price in self.mortagaged_cgs:
+        for color, id, price in sorted(self.mortagaged_cgs, key=lambda x: self.preference_order[x[0]]):
             if cash_left > price:
-                pass
+
+
+
+                cash_left -= price
+                unmortgage_result.append(id)
+            else:
+                return unmortgage_result
+        num_turn_left = self.get_turns_left()
+        if cash_left and num_turn_left > 20:
+            pass
+
 
     def sell_house(self, state):
         # TODO :: if we are switching from sell to morgage then save state
