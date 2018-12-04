@@ -5,9 +5,8 @@ import random
 
 
 class State(object):
-    def __init__(self, state, id):
-        my_id = 0 if id == 1 else 1
-        opponent_id = 1 if id == 1 else 0
+    def __init__(self, state, my_id):
+        opponent_id = 2 if id == 1 else 1
         self.turn = state[0]
         self.player_properties = state[1][:-2]
         self.jail_cards = state[1][40:]
@@ -17,7 +16,7 @@ class State(object):
         self.opponent_cash = state[3][opponent_id]
         self.phase = state[4]
         self.payload = state[5]
-        self.debt = state[6][1 if my_id == 0 else 3]
+        self.debt = state[6][1 if my_id == 1 else 3]
         self.previous_states = state[7]
 
 
@@ -71,84 +70,87 @@ class Agent(object):
         return 99 - stateobj.turn
 
     def get_other_agent(self):
-        return 2 if self.id == 1 else 1
+        if self.id == 1:
+            return 2
+        else:
+            return 1
 
     def get_state_object(self, state):
         return State(state, self.id)
 
     def getBSMTDecision(self, state):
-        # preprocessing
+        # preprocesing
         stateobj = self.get_state_object(state)
         self.update_my_properties(stateobj)
-        if stateobj.debt == 0:
+        if stateobj.debt ==0:
             if self.mortagaged_cgs:
                 lst_properties = self.unmortgage_property(stateobj)
                 if lst_properties:
-                    return "M", lst_properties
+                    return ("M",lst_properties)
                 else:
                     if self.monopoly_set:
                         lst_houses = self.build_house(stateobj)
                         if lst_houses:
-                            return "B", lst_houses
+                            return ("B",lst_houses)
                     # TODO : if lst_houses is empty launch fake deal
             else:
                 if self.monopoly_set:
-                    lst_houses = self.build_house(stateobj)
+                    lst_houses = self.build_house(state)
+
                     if lst_houses:
-                        return "B", lst_houses
+                        return ("B", lst_houses)
                 else:
-                    lst_properties = self.unmortgage_property(stateobj)
+                    lst_properties = self.unmortgage_property(state)
                     if lst_properties:
-                        return "M", lst_properties
+                        return ("M", lst_properties)
                 # TODO : if lst_houses is empty launch fake deal
+
         else:
-            # bsmt decision making
-            # debt should always be cleared: choose sell or mortgage accordingly
-            # sell
-            lst_houses = self.sell_house(stateobj)
+            # bsmt decision making and debt should always clear choose sell  or martagage accordingly
+            #sell
+            lst_houses= self.sell_house(state)
             if lst_houses:
-                return "S", lst_houses
-            # mortgage
-            lst_properties = self.mortagage_properties(stateobj)
+                return ("S", lst_houses)
+            #mortagage
+            lst_properties = self.mortagage_properties(state)
             if lst_properties:
-                return "M", lst_properties
+                return ("M", lst_properties)
 
         return self.get_trade_option(stateobj)
 
-    def update_my_properties(self, stateobj):
-        for id, status in enumerate(stateobj.player_properties):
-            if (self.id == 1 and 0 < int(status) <= 4) or (self.id == 2 and -4 <= int(status) < 0):
+    def update_my_properties(self, state):
+        for id, property in enumerate(state.player_properties):
+            if (self.id == 1 and 0 < int(property) <= 4) or (self.id == 2 and -4 <= int(property) < 0):
                 square_obj = board[id]
                 price = square_obj["price"]
                 if square_obj["class"] == "Street":
                     colour = square_obj["monopoly"]
                     build_cost = square_obj["build_cost"]
-                    num_houses = abs(status) - 1
-                    self.my_streets[colour][id] = [build_cost, num_houses, price]
+                    num_houses = abs(property) - 1
+                    self.my_streets[colour][id] = (build_cost, num_houses, price)
                     if len(self.my_streets[colour][id]) == square_obj["monopoly_size"]:
                         self.monopoly_set.add(colour)
                 elif square_obj["class"] == "Utility":
-                    self.utilities[id] = price
+                    self.utilities[id] = (price)
                 elif square_obj["class"] == "Railroad":
-                    self.rail_roads[id] = price
+                    self.rail_roads[id] = (price)
 
-    def build_house(self, stateobj):
-        cash_left = stateobj.my_cash - self.build_buffer_cap
+    def build_house(self, state):
+        cash_left = state.my_cash - self.build_buffer_cap
         result_dict = Counter()
-        # self.update_my_streets(stateobj)
-        for color, value in self.my_streets.items():
-            if color not in self.monopoly_set:
+        # self.update_my_streets(state)
+        for key, value in self.my_streets.items():
+            if key not in self.monopoly_set:
                 continue
             flag = 0
             for _ in range(3):
                 for id in sorted(value, key=lambda k: value[k][0]):
-                    build_cost, num_houses, p = value[id]
+                    build_cost, num_houses = value[id]
                     if num_houses < 3:
                         if build_cost <= cash_left:
                             result_dict[id] += 1
-                            result_dict[id] += 1
                             cash_left -= build_cost
-                            self.my_streets[color][id][1] += 1
+                            self.my_streets[key][id][1] += 1
                         else:
                             flag = 1
                             break
@@ -156,22 +158,19 @@ class Agent(object):
                     break
         return [(k, v) for k, v in result_dict.items()]
 
-    def mortagage_properties(self, stateobj):
+    def mortagage_properties(self, state):
         # note : only 50%
-        debt_left = stateobj.debt
+        debt_left = state.debt
         mortagage_properties_result = []
-
         # 1) Check 1-10 cells properties
         # 1st mortgage railroad
-        if self.rail_roads:
-            rail_road_key = list(self.rail_roads.keys())[0]
-            if len(self.rail_roads) == 1 and 0 < rail_road_key < 10:
-                debt_left -= 0.5 * self.rail_roads[rail_road_key]
-                del self.rail_roads[rail_road_key]
-                mortagage_properties_result.append(rail_road_key)
-            if debt_left <= 0:
-                return mortagage_properties_result
-
+        rail_road_key = list(self.rail_roads.keys())[0]
+        if len(self.rail_roads) == 1 and 0 < rail_road_key < 10:
+            debt_left -= 0.5 * self.rail_roads[rail_road_key]
+            del self.rail_roads[rail_road_key]
+            mortagage_properties_result.append(rail_road_key)
+        if debt_left <= 0:
+            return mortagage_properties_result
         # check for street which is not CG
         marker = []
         for color, value in self.my_streets.items():
@@ -190,7 +189,6 @@ class Agent(object):
             del self.my_streets[color][id]
         if debt_left <= 0:
             return mortagage_properties_result
-
         # single utility
         if len(self.utilities) == 1:
             key = list(self.utilities.keys())[0]
@@ -199,7 +197,6 @@ class Agent(object):
             self.utilities = {}
         if debt_left <= 0:
             return mortagage_properties_result
-
         # single railroad
         if len(self.rail_roads) == 1:
             key = list(self.rail_roads.keys())[0]
@@ -208,7 +205,6 @@ class Agent(object):
             self.rail_roads = {}
         if debt_left <= 0:
             return mortagage_properties_result
-
         # both utilities
         if len(self.utilities) == 2:
             marker = []
@@ -218,15 +214,13 @@ class Agent(object):
                 marker.append(id)
                 if debt_left < 0:
                     break
-            for id in marker:
-                del self.utilities[id]
+        for id in marker:
+            del self.utilities[id]
         if debt_left <= 0:
             return mortagage_properties_result
-
         # single street property
         marker = []
-        for color in list(self.my_streets.keys())[::-1]:
-            dct = self.my_streets[color]
+        for color, dct in self.my_streets.items()[::-1]:
             if len(dct) == 1:
                 id = list(dct.keys())[0]
                 if dct[id][1] != 0:
@@ -240,7 +234,6 @@ class Agent(object):
             del self.my_streets[color][id]
         if debt_left <= 0:
             return mortagage_properties_result
-
         # sell rail road
         marker = []
         for id, price in self.rail_roads.items():
@@ -254,11 +247,9 @@ class Agent(object):
             del self.rail_roads[id]
         if debt_left <= 0:
             return mortagage_properties_result
-
         # sell all street properties
         marker = []
-        for color in list(self.my_streets.keys())[::-1]:
-            dct = self.my_streets[color]
+        for color, dct in self.my_streets.items()[::-1]:
             for id, tup in dct.items():
                 if dct[id][1] != 0:
                     continue
@@ -274,7 +265,6 @@ class Agent(object):
             del self.my_streets[color][id]
         if debt_left <= 0:
             return mortagage_properties_result
-
         return mortagage_properties_result
 
     def get_useless_props(self, stateobj):
@@ -303,8 +293,7 @@ class Agent(object):
                 props_to_trade.append(id)
 
         # single street property
-        for color in list(self.my_streets.keys())[::-1]:
-            dct = self.my_streets[color]
+        for color, dct in self.my_streets.items()[::-1]:
             if len(dct) == 1 and color not in ['Orange', 'Red', 'Yellow']:
                 id = list(dct.keys())[0]
                 if dct[id][1] != 0:
@@ -316,9 +305,8 @@ class Agent(object):
             space = board[id]
             # Check if his street monopoly is getting formed
             color = space['monopoly']
-            if color != "Railroad" and color != "Utility":
-                if space['monopoly_size'] - len(self.opp_streets[color]) == 1:
-                    continue
+            if space['monopoly_size'] - len(self.opp_streets[color]) == 1:
+                continue
             # Check if his utility monopoly is getting formed
             if space['monopoly_size'] - len(self.opp_utilities) == 1:
                 continue
@@ -327,19 +315,17 @@ class Agent(object):
                 continue
             res.append(id)
 
-        # Buffer of all props to clear debt
         buffer_props = []
-        for color in list(self.my_streets.keys())[::-1]:
-            dct = self.my_streets[color]
+        for color, dct in self.my_streets.items()[::-1]:
             for id, tup in dct.items():
                 if id not in res:
                     buffer_props.append(id)
 
         return res, buffer_props
 
-    def unmortgage_property(self, stateobj):
+    def unmortgage_property(self, state):
         unmortgage_result = []
-        cash_left = stateobj.my_cash - self.unmortgage_cap
+        cash_left = state.my_cash - self.unmortgage_cap
         for color, id, price in sorted(self.mortagaged_cgs, key=lambda x: self.preference_order[x[0]]):
             if cash_left > price:
                 cash_left -= price
@@ -348,10 +334,10 @@ class Agent(object):
                 return unmortgage_result
 
         # unmortgage all other properties if u have turns
-        num_turn_left = self.get_turns_left(stateobj)
+        num_turn_left = self.get_turns_left(state)
         if cash_left and num_turn_left > 20:
-            for id, property in enumerate(stateobj.player_properties):
-                # TODO :: unmortgage in preference order
+            for id,property in enumerate(state.player_properties):
+                # TODO :: unmortagage in preference order
                 if (self.id == 1 and property == 7) or (self.id == 2 and property == -7):
                     square_obj = board[id]
                     price = square_obj["price"] * 0.55
@@ -363,20 +349,18 @@ class Agent(object):
         else:
             return unmortgage_result
 
-    def sell_house(self, stateobj):
-        # TODO :: if we are switching from sell to mortgage then save state
-        debt_left = stateobj.debt
+    def sell_house(self, state):
+        # TODO :: if we are switching from sell to morgage then save state
+        debt_left = state.debt
         result_dict = Counter()
-        # self.update_my_streets(stateobj)
-
-        marker = []
-        for key in list(self.my_streets.keys())[::-1]:
-            value = self.my_streets[key]
+        # self.update_my_streets(state)
+        marker=[]
+        for key, value in self.my_streets.items()[::-1]:
             flag = 0
             for _ in range(3):
                 for id in sorted(value, key=lambda k: value[k][0], reverse=True):
 
-                    build_cost, num_houses, p = value[id]
+                    build_cost, num_houses = value[id]
                     if num_houses > 0:
                         if debt_left > 0:
                             result_dict[id] += 1
@@ -389,14 +373,14 @@ class Agent(object):
                 if flag:
                     break
         if debt_left > 0:
-            # let it try mortgaging if selling houses does not clear debt
-            for colour, id in marker:
-                # fixing changes made to my_streets
-                self.my_streets[colour][id][1] += 1
+            #let it try mortgaging if selling houses does not clear debt
+            for colour,id in marker:
+                #fixing changes made to my_streets
+                self.my_streets[colour][id][1]+=1
             return []
         return [(k, v) for k, v in result_dict.items()]
 
-    def respondTrade(self, stateobj):
+    def respondTrade(self, state):
         # Do not trade utility if he already has one
         # Do not accept reverse order preference of street class
         # Do not accept if opponent is in debt
@@ -439,8 +423,6 @@ class Agent(object):
         for color, values in self.my_streets.items():
             if color in self.monopoly_set or color in ['Light Blue', 'Brown', 'Green', 'Dark Blue', 'Pink']:
                 continue
-            if not values:
-                continue
             any_id = list(values.keys())[0]
             grp_elements = board[any_id]['monopoly_group_elements']
             if len(grp_elements) == len(values):
@@ -478,8 +460,7 @@ class Agent(object):
         # & give prop without forming cg to him
         if len(self.rail_roads) > 0 and len(self.opp_rail_roads) > 0:
             tmp_lst = []
-            id= list(self.opp_rail_roads.keys())[0]
-            cash_to_match = board[id]['price'] + stateobj.debt
+            cash_to_match = board[self.opp_rail_roads[0]]['price'] + stateobj.debt
             for useless_prop in useless_props:
                 cash_to_match -= board[useless_prop]['price']
                 tmp_lst.append(useless_prop)
@@ -487,7 +468,7 @@ class Agent(object):
                     continue
                 else:
                     cash_req = abs(cash_to_match)
-                    return 'T', 0, tmp_lst, cash_req, [id]
+                    return 'T', 0, tmp_lst, cash_req, [self.opp_rail_roads[0]]
 
         # TODO: Trade reverse order preference of street class
         # Backup Strategy (taking care of debt by giving away useless props)
@@ -552,7 +533,7 @@ class Agent(object):
             # TBD
             return False
 
-    def auctionProperty(self, stateobj):
+    def auctionProperty(self, state):
         # Check if property is imp to u
         # Then bid for prop val + 1
 
