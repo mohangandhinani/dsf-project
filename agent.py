@@ -1,5 +1,7 @@
 from collections import OrderedDict, Counter
 from constants import *
+import copy
+import random
 
 
 class State(object):
@@ -7,6 +9,7 @@ class State(object):
         opponent_id = 2 if id == 1 else 1
         self.turn = state[0]
         self.player_properties = state[1][:-2]
+        self.jail_cards = state[1][40:]
         self.my_position = state[2][my_id]
         self.opponent_position = state[2][opponent_id]
         self.my_cash = state[3][my_id]
@@ -38,6 +41,19 @@ class Agent(object):
         self.unmortgage_cap = 300
         self.buying_limit = 300
         self.mortagaged_cgs = []  # tuple of color, id, unmortgage price
+        self.opp_streets = OrderedDict({
+            "Orange": {},
+            "Red": {},
+            "Yellow": {},
+            "Light Blue": {},
+            "Brown": {},  # key is id value is (buildcost, num houses, price)
+            "Green": {},
+            "Dark Blue": {},
+            "Pink": {}
+        })
+        self.opp_utilities = {}
+        self.opp_rail_roads = {}  # id:price
+        self.opp_mortgaged_props = {}
         self.preference_order = {"Orange": 0,
                                  "Red": 1,
                                  "Yellow": 2,
@@ -64,22 +80,23 @@ class Agent(object):
 
     def getBMSTDecision(self, state):
         # preprocesing
-        state = self.get_state_object(state)
-        self.update_my_properties(state)
-        if state.debt ==0:
+        stateobj = self.get_state_object(state)
+        self.update_my_properties(stateobj)
+        if stateobj.debt ==0:
             if self.mortagaged_cgs:
-                lst_properties = self.unmortgage_property(state)
+                lst_properties = self.unmortgage_property(stateobj)
                 if lst_properties:
                     return ("M",lst_properties)
                 else:
                     if self.monopoly_set:
-                        lst_houses = self.build_house(state)
+                        lst_houses = self.build_house(stateobj)
                         if lst_houses:
                             return ("B",lst_houses)
                     # TODO : if lst_houses is empty launch fake deal
             else:
                 if self.monopoly_set:
                     lst_houses = self.build_house(state)
+
                     if lst_houses:
                         return ("B", lst_houses)
                 else:
@@ -98,9 +115,7 @@ class Agent(object):
             lst_properties = self.mortagage_properties(state)
             if lst_properties:
                 return ("M", lst_properties)
-
         #TODO : bydefult launch fake deal to win in the last case
-
 
     def update_my_properties(self, state):
         for id, property in enumerate(state.player_properties):
@@ -147,8 +162,8 @@ class Agent(object):
         debt_left = state.debt
         mortagage_properties_result = []
         # 1) Check 1-10 cells properties
-        # 1st mortagage railroad
-        rail_road_key = self.rail_roads.keys()[0]
+        # 1st mortgage railroad
+        rail_road_key = list(self.rail_roads.keys())[0]
         if len(self.rail_roads) == 1 and 0 < rail_road_key < 10:
             debt_left -= 0.5 * self.rail_roads[rail_road_key]
             del self.rail_roads[rail_road_key]
@@ -175,7 +190,7 @@ class Agent(object):
             return mortagage_properties_result
         # single utility
         if len(self.utilities) == 1:
-            key = self.utilities.keys()[0]
+            key = list(self.utilities.keys())[0]
             mortagage_properties_result.append(key)
             debt_left -= 0.5 * self.utilities[key]
             self.utilities = {}
@@ -183,7 +198,7 @@ class Agent(object):
             return mortagage_properties_result
         # single railroad
         if len(self.rail_roads) == 1:
-            key = self.rail_roads.keys()[0]
+            key = list(self.rail_roads.keys())[0]
             mortagage_properties_result.append(key)
             debt_left -= 0.5 * self.rail_roads[key]
             self.rail_roads = {}
@@ -206,7 +221,7 @@ class Agent(object):
         marker = []
         for color, dct in self.my_streets.items()[::-1]:
             if len(dct) == 1:
-                id = dct.keys()[0]
+                id = list(dct.keys())[0]
                 if dct[id][1] != 0:
                     continue
                 mortagage_properties_result.append(id)
@@ -251,6 +266,62 @@ class Agent(object):
             return mortagage_properties_result
         return mortagage_properties_result
 
+    def get_useless_props(self, stateobj):
+        props_to_trade = []
+        # 1) Check 1-10 cells properties
+        # check for street which is not CG
+        for color, value in self.my_streets.items():
+            if color not in self.monopoly_set:
+                for id, tup in value.items():
+                    if tup[1] != 0:
+                        continue
+                    if 0 < int(id) < 10:
+                        props_to_trade.append(id)
+
+        # single utility
+        if len(self.utilities) == 1:
+            key = list(self.utilities.keys())[0]
+            props_to_trade.append(key)
+
+        # Mortgaged property
+        mgt_cg_ids = set([t[1] for t in self.mortagaged_cgs])
+        for id, status in enumerate(stateobj.player_properties):
+            if (self.id == 1 and status == 7) or (self.id == 2 and status == -7):
+                if id in mgt_cg_ids:
+                    continue
+                props_to_trade.append(id)
+
+        # single street property
+        for color, dct in self.my_streets.items()[::-1]:
+            if len(dct) == 1 and color not in ['Orange', 'Red', 'Yellow']:
+                id = list(dct.keys())[0]
+                if dct[id][1] != 0:
+                    continue
+                props_to_trade.append(id)
+
+        res=[]
+        for id in props_to_trade:
+            space = board[id]
+            # Check if his street monopoly is getting formed
+            color = space['monopoly']
+            if space['monopoly_size'] - len(self.opp_streets[color]) == 1:
+                continue
+            # Check if his utility monopoly is getting formed
+            if space['monopoly_size'] - len(self.opp_utilities) == 1:
+                continue
+            # Check if his railroad monopoly is getting formed
+            if space['monopoly_size'] - len(self.opp_rail_roads) == 1:
+                continue
+            res.append(id)
+
+        buffer_props = []
+        for color, dct in self.my_streets.items()[::-1]:
+            for id, tup in dct.items():
+                if id not in res:
+                    buffer_props.append(id)
+
+        return res, buffer_props
+
     def unmortgage_property(self, state):
         unmortgage_result = []
         cash_left = state.my_cash - self.unmortgage_cap
@@ -269,7 +340,7 @@ class Agent(object):
                 if (self.id == 1 and property == 7) or (self.id == 2 and property == -7):
                     square_obj = board[id]
                     price = square_obj["price"] * 0.55
-                    if cash_left > price:
+                    if float(cash_left) > price:
                         cash_left -= price
                         unmortgage_result.append(id)
                     else:
@@ -310,7 +381,111 @@ class Agent(object):
         return [(k, v) for k, v in result_dict.items()]
 
     def respondTrade(self, state):
-        pass
+        # Do not trade utility if he already has one
+        # Do not accept reverse order preference of street class
+        # Do not accept if opponent is in debt
+        # Check if opponent CG is getting formed & (do not give that property OR ask for huge sum)
+        # If property offered is mortgaged, offer a higher price
+        if random.random() > 0.5:
+            return False
+        else:
+            return True
+
+    def update_opp_props(self, stateobj):
+        opp_id = self.get_other_agent()
+        for id, status in enumerate(stateobj.player_properties):
+            if (opp_id == 1 and 0 < int(status) <= 7) or (opp_id == 2 and -7 <= int(status) < 0):
+                square_obj = board[id]
+                price = square_obj["price"]
+                if (opp_id == 1 and status == 7) or (opp_id == 2 and status == -7):
+                    self.opp_mortgaged_props[id] = price
+                    continue
+                if square_obj["class"] == "Street":
+                    colour = square_obj["monopoly"]
+                    build_cost = square_obj["build_cost"]
+                    num_houses = abs(status) - 1
+                    self.opp_streets[colour][id] = (build_cost, num_houses, price)
+                    # if len(self.opp_streets[colour][id]) == square_obj["monopoly_size"]:
+                    #     self.monopoly_set.add(colour)
+                elif square_obj["class"] == "Utility":
+                    self.opp_utilities[id] = price
+                elif square_obj["class"] == "Railroad":
+                    self.opp_rail_roads[id] = price
+
+    def get_trade_option(self, state):
+        stateobj = self.get_state_object(state)
+
+        # Get opponent properties - utilities, railroads, mortgaged properties, cgs, other props
+        self.update_opp_props(stateobj)
+
+        # Try to get properties to request by looking at CG in
+        # preference order (O,R,Y only) + utility + railroad
+        self.update_my_properties(stateobj)
+        props_req = []
+        for color, values in self.my_streets.items():
+            if color in self.monopoly_set or color in ['Light Blue', 'Brown', 'Green', 'Dark Blue', 'Pink']:
+                continue
+            any_id = list(values.keys())[0]
+            grp_elements = board[any_id]['monopoly_group_elements']
+            if len(grp_elements) == len(values):
+                grp_elements.append(any_id)
+                props_req.append(list(set(grp_elements) - set(values))[0])
+
+        useless_props, buffer = self.get_useless_props(stateobj)
+        giveaway_props = copy.deepcopy(useless_props)
+        giveaway_props.extend(buffer)
+
+        # MUST TODO: randomise this invocation
+        # Strategy 1 (taking care of debt + requesting imp props)
+        if props_req and useless_props:
+            for prop in props_req:
+                tmp_lst = []
+                cash_to_match = board[prop]['price'] + stateobj.debt
+                for id in useless_props:
+                    #trying all combinations of useless prop and prop to offer
+                    cash_to_match -= board[id]['price']
+                    tmp_lst.append(id)
+                    if cash_to_match > 0:
+                        continue
+                    else:
+                        cash_req = abs(cash_to_match)
+                        return 'T', 0, tmp_lst, cash_req, [prop]
+                if cash_to_match > 0:
+                    continue
+        elif not useless_props:
+            for prop in props_req:
+                cash_offer = board[prop]['price']
+                if stateobj.my_cash >= cash_offer + 300:
+                    return 'T', cash_offer, [], 0, [prop]
+
+        # Strategy 2: If we have one railroad, get railroad from him
+        # & give prop without forming cg to him
+        if len(self.rail_roads) > 0 and len(self.opp_rail_roads) > 0:
+            tmp_lst = []
+            cash_to_match = board[self.opp_rail_roads[0]]['price'] + stateobj.debt
+            for useless_prop in useless_props:
+                cash_to_match -= board[useless_prop]['price']
+                tmp_lst.append(useless_prop)
+                if cash_to_match > 0:
+                    continue
+                else:
+                    cash_req = abs(cash_to_match)
+                    return 'T', 0, tmp_lst, cash_req, [self.opp_rail_roads[0]]
+
+        # TODO: Trade reverse order preference of street class
+        # Backup Strategy (taking care of debt by giving away useless props)
+        if giveaway_props:
+            tmp_lst = []
+            cash_to_match = stateobj.debt
+            for id in giveaway_props:
+                # trying all combinations of useless prop and prop to offer
+                cash_to_match -= board[id]['price']
+                tmp_lst.append(id)
+                if cash_to_match > 0:
+                    continue
+                else:
+                    cash_req = abs(cash_to_match)
+                    return 'T', 0, tmp_lst, cash_req, []
 
     def buyProperty(self, state):
         stateobj = self.get_state_object(state)
@@ -349,6 +524,7 @@ class Agent(object):
                 return True
 
             # Check if it is important to us
+            # TODO: try this logic
             if space['monopoly'] in ['Orange', 'Red', 'Yellow', 'Light Blue']:
                 return True
             else:
@@ -360,10 +536,30 @@ class Agent(object):
             return False
 
     def auctionProperty(self, state):
-        pass
+        # Check if property is imp to u
+        # Then bid for prop val + 1
+
+        # Check if property imp for him
+        # if his cash is less, his cash + 1
+        # else he has cash but wants to buy for less, 0.9 * prop val
+
+        # keep checking prev pattern from receive state
+        # then get all formulas & apply
+        # if no prev pattern, bid for 0.5 * prop val + 1
+        return 100
 
     def jailDecision(self, state):
-        pass
+        stateobj = self.get_state_object(state)
+        if self.get_turns_left(stateobj) < 30:
+            return 'R', None
+
+        flag = -1 if self.id == 2 else 1
+        if flag in stateobj.jail_cards[0]:
+            return 'C', 40
+        elif flag in stateobj.jail_cards[1]:
+            return 'C', 41
+        else:
+            return 'P', None
 
     def receiveState(self, state):
         pass
