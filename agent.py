@@ -79,22 +79,26 @@ class Agent(object):
                     # TODO : if lst_houses is empty launch fake deal
             else:
                 if self.monopoly_set:
-                    lst_properties = self.build_house(state)
-                    if lst_properties:
-                        return ("B", lst_properties)
-                else:
-                    lst_houses = self.unmortgage_property(state)
+                    lst_houses = self.build_house(state)
                     if lst_houses:
-                        return ("M", lst_houses)
+                        return ("B", lst_houses)
+                else:
+                    lst_properties = self.unmortgage_property(state)
+                    if lst_properties:
+                        return ("M", lst_properties)
                 # TODO : if lst_houses is empty launch fake deal
 
         else:
-        # TODO : bsmt decision making and debt should always clear choose sell  or martagage accordingly
-        #sell
-        self.sell_house(state)
-        #TODO : restore state if you are switching
-        #mortagage
-        self.mortagage_properties(state)
+            # bsmt decision making and debt should always clear choose sell  or martagage accordingly
+            #sell
+            lst_houses= self.sell_house(state)
+            if lst_houses:
+                return ("S", lst_houses)
+            #mortagage
+            lst_properties = self.mortagage_properties(state)
+            if lst_properties:
+                return ("M", lst_properties)
+
         #TODO : bydefult launch fake deal to win in the last case
 
 
@@ -279,6 +283,7 @@ class Agent(object):
         debt_left = state.debt
         result_dict = Counter()
         # self.update_my_streets(state)
+        marker=()
         for key, value in self.my_streets.items()[::-1]:
             flag = 0
             for _ in range(3):
@@ -290,11 +295,18 @@ class Agent(object):
                             result_dict[id] += 1
                             debt_left -= build_cost
                             self.my_streets[key][id][1] -= 1
+                            marker.append((key, id))
                         else:
                             flag = 1
                             break
                 if flag:
                     break
+        if debt_left > 0:
+            #let it try mortgaging if selling houses does not clear debt
+            for colour,id in marker:
+                #fixing changes made to my_streets
+                self.my_streets[colour][id][1]+=1
+            return []
         return [(k, v) for k, v in result_dict.items()]
 
     def respondTrade(self, state):
