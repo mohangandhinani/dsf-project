@@ -1,6 +1,6 @@
 Monopoly Contributors (sorted alphabetically)
 ============================================
 
-* Pragesh Jagnani
-* Sanjay Thomas
-* Varun Hegde
+* Swetha Tatavarthy
+* Shalini Bhaskara
+* Mohan Gandhi Alapati

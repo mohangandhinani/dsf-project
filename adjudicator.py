@@ -1,3 +1,4 @@
+# encoding=utf8
 from config import log
 import dice
 import constants
@@ -112,6 +113,7 @@ class Adjudicator:
     def transformState(self, state):
 
         transformedState = []
+
         for element in state:
             if isinstance(element, list):
                 transformedState.append(tuple(element))
@@ -130,13 +132,64 @@ class Adjudicator:
         except:
             return default
 
-    def check_valid_bid(self, cash):
+    # Function checks cash passed in through actions by the agent.
+    # If cash can't be typecast to int, the cash amount is considered invalid and invalid flows for defaulting would take place.
+    def check_valid_cash(self, cash):
         try:
             cash = int(cash)
         except:
-            return False
+            return 0
         if cash < 0:
-            return False
+            return 0
+        return cash
+
+    """
+    Checks if a particular action given by the agent to BSMT is valid.
+    Return True if the action was correctly parsed. False otherwise
+    """
+
+    def bsmt_input_validator(self, action):
+        type = action[0]
+        if (type == "B") or (type == "S"):
+            if len(action) < 2:
+                return False
+            if not isinstance(action[1], list) and not isinstance(action[1], tuple):
+                return False
+            else:
+                for prop in action[1]:
+                    if not isinstance(prop, list) and not isinstance(prop, tuple):
+                        return False
+                    else:
+                        if len(prop) < 2:
+                            return False
+                        if self.typecast(prop[0], int, -1) == -1:
+                            return False
+                        if self.typecast(prop[1], int, -1) == -1:
+                            return False
+        elif type == "M":
+            if len(action) < 2:
+                return False
+            if not isinstance(action[1], list) and not isinstance(action[1], tuple):
+                return False
+            else:
+                for prop in action[1]:
+                    if self.typecast(prop, int, -1) == -1:
+                        return False
+        elif type == "T":
+            if len(action) < 5:
+                return False
+            if not isinstance(action[2], list) and not isinstance(action[2], tuple):
+                return False
+            else:
+                for prop in action[2]:
+                    if self.typecast(prop, int, -1) == -1:
+                        return False
+            if not isinstance(action[4], list) and not isinstance(action[4], tuple):
+                return False
+            else:
+                for prop in action[4]:
+                    if self.typecast(prop, int, -1) == -1:
+                        return False
         return True
 
     def getOtherPlayer(self, currentPlayer):
@@ -283,7 +336,10 @@ class Adjudicator:
         def handleBuy(agent, properties):
             currentPlayer = agent.id
 
-            invalidProperties = [x for x in properties if (x[1] < 0) or (x[1] > 5)]
+            # Checking if there are properties where houses can't be built
+            # Or has invalid number of houses to be built
+            invalidProperties = [x for x in properties if
+                                 (x[1] < 0) or (x[1] > 5 or constants.board[x[0]]['class'] != 'Street')]
             if len(invalidProperties) > 0:
                 return False
 
@@ -332,6 +388,11 @@ class Adjudicator:
 
         def handleSell(agent, properties):
             currentPlayer = agent.id
+
+            # Checking if there are properties where houses can't be built
+            invalidProperties = [x for x in properties if constants.board[x[0]]['class'] != 'Street']
+            if len(invalidProperties) > 0:
+                return False
 
             if not validBuyingSequence(currentPlayer, properties, -1):
                 return False
@@ -414,10 +475,8 @@ class Adjudicator:
         def handleTrade(agent, otherAgent, cashOffer, propertiesOffer, cashRequest, propertiesRequest):
             currentPlayer = agent.id
 
-            if not self.check_valid_bid(cashRequest):
-                cashRequest = 0
-            if not self.check_valid_bid(cashOffer):
-                cashOffer = 0
+            cashRequest = self.check_valid_cash(cashRequest)
+            cashOffer = self.check_valid_cash(cashOffer)
 
             otherPlayer = self.getOtherPlayer(currentPlayer)
 
@@ -434,11 +493,15 @@ class Adjudicator:
                 propertyStatus = getPropertyStatus(state, propertyOffer)
                 if not rightOwner(propertyStatus, currentPlayer):
                     return False
+                if abs(propertyStatus) > 1 and abs(propertyStatus) < 7:
+                    return False
 
             # check if the other agent actually cash and properties to offer
             for propertyRequest in propertiesRequest:
                 propertyStatus = getPropertyStatus(state, propertyRequest)
                 if not rightOwner(propertyStatus, otherPlayer):
+                    return False
+                if abs(propertyStatus) > 1 and abs(propertyStatus) < 7:
                     return False
 
             phasePayload = [cashOffer, propertiesOffer, cashRequest, propertiesRequest]
@@ -506,6 +569,9 @@ class Adjudicator:
 
             intent = action[0]
 
+            # if not self.bsmt_input_validator(action):
+            #	return False
+
             if intent == "B":
                 return handleBuy(agent, action[1])
 
@@ -562,7 +628,7 @@ class Adjudicator:
         self.dice.double = False
 
         currentPlayer = state[self.PLAYER_TURN_INDEX] % 2
-        log("jail", "Player " + str(currentPlayer) + " has been sent to jail")
+        log("jail", "Agent " + str(currentPlayer + 1) + " has been sent to jail")
         self.updateState(state, self.PLAYER_POSITION_INDEX, currentPlayer, -1)
         self.updateState(state, self.PHASE_NUMBER_INDEX, None, self.JAIL)
 
@@ -597,12 +663,11 @@ class Adjudicator:
                 Assuming player has the money
                 """
                 playerCash = state[self.PLAYER_CASH_INDEX][currentPlayer]
-                if playerCash >= 50:
-                    playerCash -= 50
-                    self.updateState(state, self.PLAYER_CASH_INDEX, currentPlayer, playerCash)
-                    self.updateState(state, self.PLAYER_POSITION_INDEX, currentPlayer, self.JUST_VISTING)
-                    self.agentJailCounter[currentPlayer] = 0
-                    return [True, False]
+                # This could cause Bankruptcy. Would cause playerCash to go below 0.
+                self.updateState(state, self.PLAYER_CASH_INDEX, currentPlayer, playerCash - 50)
+                self.updateState(state, self.PLAYER_POSITION_INDEX, currentPlayer, self.JUST_VISTING)
+                self.agentJailCounter[currentPlayer] = 0
+                return [True, False]
 
             elif action[0] == 'C':
                 # Check if the player has the mentioned property card.
@@ -664,7 +729,7 @@ class Adjudicator:
     def start_auction(self, state):
         currentPlayer = state[self.PLAYER_TURN_INDEX] % 2
 
-        log("auction", "Player " + str(currentPlayer) + " is starting an Auction")
+        log("auction", "Agent " + str(currentPlayer + 1) + " is starting an Auction")
 
         opponent = abs(currentPlayer - 1)
         playerPosition = state[self.PLAYER_POSITION_INDEX][currentPlayer]
@@ -695,12 +760,11 @@ class Adjudicator:
 
         winner = None
 
-        if not self.check_valid_bid(actionCurrentPlayer):
-            actionCurrentPlayer = 0
-        if not self.check_valid_bid(actionOpponent):
-            actionOpponent = 0
+        actionCurrentPlayer = self.check_valid_cash(actionCurrentPlayer)
+        actionOpponent = self.check_valid_cash(actionOpponent)
 
-        log("auction", "Bids from the players: " + str(actionCurrentPlayer) + "," + str(actionOpponent))
+        log("auction",
+            "Bids from the players: Current Player: " + str(actionCurrentPlayer) + ",Opponent: " + str(actionOpponent))
 
         if actionCurrentPlayer > actionOpponent:
             # Current Player wins the auction
@@ -711,7 +775,7 @@ class Adjudicator:
             winner = opponent
             winningBid = actionOpponent
 
-        log("auction", "Player " + str(winner) + " won the Auction")
+        log("auction", "Player " + str(winner + 1) + " won the Auction")
 
         playerCash = state[self.PLAYER_CASH_INDEX][winner]
         if playerCash >= winningBid:
@@ -996,7 +1060,7 @@ class Adjudicator:
         if propertyValue == 0:
             # Unowned
             output['phase'] = self.BUYING
-            output['phase_properties'] = [playerPosition]
+            output['phase_properties'] = playerPosition
             output['debt'] = (0, constants.board[playerPosition]['price'])
         else:
             # Check if owned by opponent
@@ -1187,7 +1251,7 @@ class Adjudicator:
                 phaseNumber = self.BUYING
                 debt[2 * currentPlayer] = 0
                 debt[2 * currentPlayer + 1] = constants.board[playerPosition]['price']
-                phasePayload.append(playerPosition)
+                phasePayload = playerPosition
             else:
                 # Check if owned by opponent
                 if currentPlayer == 0:
@@ -1436,11 +1500,13 @@ class Adjudicator:
                         """State now contain info about the position the player landed on"""
                         """Performing the actual effect of the current position"""
                         result = self.turn_effect(self.state, currentPlayer, opponent)
+                        # AgentOne wasn't able to make payment
                         if not result[0]:
-                            winner = opponent.id
+                            winner = self.agentTwo.id
                             break
+                        # AgentTwo wasn't able to make payment
                         elif not result[1]:
-                            winner = currentPlayer.id
+                            winner = self.agentOne.id
                             break
                         if True in self.timeoutTracker:
                             if self.timeoutTracker[currentPlayer]:
@@ -1478,7 +1544,7 @@ class Adjudicator:
 
         # Storing the state_history to log file
         f = open("state_history.log", "w")
-        for history in constants.state_history:
+        for history in self.stateHistory:
             f.write(str(history) + ",\n")
 
         """Determine the winner"""
@@ -1534,7 +1600,7 @@ class Adjudicator:
         if receiveState:
             action = player.receiveState(stateToBeSent)
         elif current_phase == self.BSTM:
-            action = player.getBMSTDecision(stateToBeSent)
+            action = player.getBSMTDecision(stateToBeSent)
         elif current_phase == self.TRADE_OFFER:
             action = player.respondTrade(stateToBeSent)
         elif current_phase == self.BUYING:
@@ -1549,9 +1615,9 @@ class Adjudicator:
         return action
 
 
-# for testing purposes only
-# from agent import Agent
-# agentOne = Agent(1)
-# agentTwo = Agent(2)
-# adjudicator = Adjudicator()
-# adjudicator.runGame(agentOne, agentTwo)
+        # for testing purposes only
+        # from agent import Agent
+        # agentOne = Agent(1)
+        # agentTwo = Agent(2)
+        # adjudicator = Adjudicator()
+        # adjudicator.runGame(agentOne, agentTwo)

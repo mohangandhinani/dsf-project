@@ -37,7 +37,7 @@ board = {
 "monopoly":"Brown",
 "monopoly_size":2,
 "price":60,
-"build_cost":                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          50,
+"build_cost":50,
 "rent":2,
 "rent_house_1":10,
 "rent_house_2":30,
