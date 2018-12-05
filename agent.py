@@ -41,6 +41,7 @@ class Agent(object):
         self.build_buffer_cap = 500
         self.unmortgage_cap = 300
         self.buying_limit = 300
+        self.auction_limit = 200
         self.mortagaged_cgs = []  # tuple of color, id, unmortgage price
         self.opp_streets = OrderedDict({
             "Orange": {},
@@ -63,7 +64,7 @@ class Agent(object):
                                  "Green": 5,
                                  "Dark Blue": 6,
                                  "Pink": 7,
-                                 "Railroad":8
+                                 "Railroad": 8
                                  }
 
     @staticmethod
@@ -505,6 +506,7 @@ class Agent(object):
                     return 'T', 0, tmp_lst, cash_req, []
 
     def buyProperty(self, state):
+        # TODO: call update_my_properties??
         stateobj = self.get_state_object(state)
 
         # Check if we reached buying cap
@@ -552,18 +554,60 @@ class Agent(object):
             # TBD
             return False
 
-    def auctionProperty(self, stateobj):
+    def auctionProperty(self, state):
+        # TODO: call update_my_properties??
+        stateobj = self.get_state_object(state)
+
+        # get property ID
+        propid = stateobj.payload[0]
+        space = board[propid]
+
+        # check if less number of turns left
+        if self.get_turns_left(stateobj) < 20:
+            # Check if we reached auction cap
+            if stateobj.my_cash <= self.auction_limit:
+                return 0
+            else:
+                return 0.5 * space['price']
+
         # Check if property is imp to u
         # Then bid for prop val + 1
+        # Check if it is forming monopoly
+        if space['class'] == 'Street':
+            monopoly_size = space['monopoly_size']
+            num_props_cg = len(self.my_streets[space['monopoly']])
+            if num_props_cg + 1 == monopoly_size:
+                return space['price'] + 1
+        # Check if it is second rail road or more
+        if space['class'] == 'Railroad' and \
+                len(self.rail_roads) > 1:
+            return space['price'] + 1
+        # Check if it is second utility
+        if space['class'] == 'Utility' and \
+                len(self.utilities) > 1:
+            return 0.8 * space['price'] + 1
 
         # Check if property imp for him
-        # if his cash is less, his cash + 1
-        # else he has cash but wants to buy for less, 0.9 * prop val
+        propertyStatus = [prop for prop in state[1]]
+        opp_id = self.get_other_agent()
+        is_imp = True
+        for _propid in space['monopoly_group_elements']:
+            if (opp_id == 1 and not 1 <= propertyStatus[_propid] <= 7) or \
+                    (opp_id == 2 and not -7 <= propertyStatus[_propid] <= -1):
+                is_imp = False
+        if is_imp:
+            # if his cash is less, his cash + 1
+            if stateobj.opponent_cash < space['price']:
+                return stateobj.opponent_cash + 1
+            else:
+                # else he has cash but wants to buy for less, 0.9 * prop val
+                return 0.9 * space['price']
 
-        # keep checking prev pattern from receive state
+        # TODO: keep checking prev pattern from receive state
         # then get all formulas & apply
-        # if no prev pattern, bid for 0.5 * prop val + 1
-        return 100
+
+        # generically, bid for 0.5 * prop val + 1
+        return 0.5 * space['price'] + 1
 
     def jailDecision(self, state):
         stateobj = self.get_state_object(state)

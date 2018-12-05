@@ -7,7 +7,7 @@ from agent import Agent
 def runAgents():
     agentOne = GreedyAgent(1)
     agentTwo = Agent(2)
-    # agentTwo = RandomAgent(2)
+    # agentOne = RandomAgent(1)
     adjudicator = Adjudicator()
     result = adjudicator.runGame(agentOne, agentTwo)
     return result[0]
