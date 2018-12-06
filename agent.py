@@ -129,7 +129,7 @@ class Agent(object):
                     build_cost = square_obj["build_cost"]
                     num_houses = abs(status) - 1
                     self.my_streets[colour][id] = [build_cost, num_houses, price]
-                    if len(self.my_streets[colour][id]) == square_obj["monopoly_size"]:
+                    if len(self.my_streets[colour]) == square_obj["monopoly_size"]:
                         self.monopoly_set.add(colour)
                 elif square_obj["class"] == "Utility":
                     self.utilities[id] = price
@@ -149,7 +149,6 @@ class Agent(object):
                     build_cost, num_houses, p = value[id]
                     if num_houses < 3:
                         if build_cost <= cash_left:
-                            result_dict[id] += 1
                             result_dict[id] += 1
                             cash_left -= build_cost
                             self.my_streets[color][id][1] += 1
