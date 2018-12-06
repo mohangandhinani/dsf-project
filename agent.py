@@ -85,33 +85,31 @@ class Agent(object):
         stateobj = self.get_state_object(state)
         self.update_my_properties(stateobj)
         if stateobj.debt == 0:
+            # First preference to unmortgage imp props
             if self.mortagaged_cgs:
                 lst_properties = self.unmortgage_property(stateobj)
                 if lst_properties:
                     return "M", lst_properties
-                else:
-                    if self.monopoly_set:
-                        lst_houses = self.build_house(stateobj)
-                        if lst_houses:
-                            return "B", lst_houses
-                    # TODO : if lst_houses is empty launch fake deal
+            # Second preference to build house
+            if self.monopoly_set:
+                lst_houses = self.build_house(stateobj)
+                if lst_houses:
+                    return "B", lst_houses
+            # Randomise unmortgage & trade
+            if random.randint(1, 101) % 2:
+                lst_properties = self.unmortgage_property(stateobj)
+                if lst_properties:
+                    return "M", lst_properties
             else:
-                if self.monopoly_set:
-                    lst_houses = self.build_house(stateobj)
-                    if lst_houses:
-                        return "B", lst_houses
-                else:
-                    lst_properties = self.unmortgage_property(stateobj)
-                    if lst_properties:
-                        return "M", lst_properties
                 # TODO : if lst_houses is empty launch fake deal
+                return self.get_trade_option(stateobj)
         else:
-            # bsmt decision making
-            # debt should always be cleared: choose sell or mortgage accordingly
-            # sell
+            # debt should always be cleared:
+            # choose sell, mortgage, trade accordingly
             lst_houses = self.sell_house(stateobj)
             if lst_houses:
                 return "S", lst_houses
+            # TODO: randomise mortgage & trade
             # mortgage
             lst_properties = self.mortagage_properties(stateobj)
             if lst_properties:
@@ -529,47 +527,49 @@ class Agent(object):
         giveaway_props = copy.deepcopy(useless_props)
         giveaway_props.extend(buffer)
 
-        # MUST TODO: randomise this invocation
-        # Strategy 1 (taking care of debt + requesting imp props)
-        if props_req and useless_props:
-            for prop in props_req:
+        if random.randint(1, 101) % 2:
+            # Strategy 1 (taking care of debt + requesting imp props)
+            print('Take: ', props_req, 'Give: ', useless_props)
+            if props_req and useless_props:
+                for prop in props_req:
+                    tmp_lst = []
+                    cash_to_match = board[prop]['price'] + stateobj.debt
+                    for id in useless_props:
+                        #trying all combinations of useless prop and prop to offer
+                        cash_to_match -= board[id]['price']
+                        tmp_lst.append(id)
+                        if cash_to_match > 0:
+                            continue
+                        else:
+                            cash_req = abs(cash_to_match)
+                            return 'T', 0, tmp_lst, cash_req, [prop]
+                    if cash_to_match > 0:
+                        continue
+            elif not useless_props:
+                for prop in props_req:
+                    cash_offer = board[prop]['price']
+                    if stateobj.my_cash >= cash_offer + 300:
+                        return 'T', cash_offer, [], 0, [prop]
+        else:
+            # Strategy 2: If we have one railroad, get railroad from him
+            # & give prop without forming cg to him
+            if len(self.rail_roads) > 0 and len(self.opp_rail_roads) > 0:
                 tmp_lst = []
-                cash_to_match = board[prop]['price'] + stateobj.debt
-                for id in useless_props:
-                    # trying all combinations of useless prop and prop to offer
-                    cash_to_match -= board[id]['price']
-                    tmp_lst.append(id)
+                id= list(self.opp_rail_roads.keys())[0]
+                cash_to_match = board[id]['price'] + stateobj.debt
+                for useless_prop in useless_props:
+                    cash_to_match -= board[useless_prop]['price']
+                    tmp_lst.append(useless_prop)
                     if cash_to_match > 0:
                         continue
                     else:
                         cash_req = abs(cash_to_match)
-                        return 'T', 0, tmp_lst, cash_req, [prop]
-                if cash_to_match > 0:
-                    continue
-        elif not useless_props:
-            for prop in props_req:
-                cash_offer = board[prop]['price']
-                if stateobj.my_cash >= cash_offer + 300:
-                    return 'T', cash_offer, [], 0, [prop]
-
-        # Strategy 2: If we have one railroad, get railroad from him
-        # & give prop without forming cg to him
-        if len(self.rail_roads) > 0 and len(self.opp_rail_roads) > 0:
-            tmp_lst = []
-            id = list(self.opp_rail_roads.keys())[0]
-            cash_to_match = board[id]['price'] + stateobj.debt
-            for useless_prop in useless_props:
-                cash_to_match -= board[useless_prop]['price']
-                tmp_lst.append(useless_prop)
-                if cash_to_match > 0:
-                    continue
-                else:
-                    cash_req = abs(cash_to_match)
-                    return 'T', 0, tmp_lst, cash_req, [id]
+                        return 'T', 0, tmp_lst, cash_req, [id]
 
         # TODO: Trade reverse order preference of street class
         # Backup Strategy (taking care of debt by giving away useless props)
-        if giveaway_props:
+        if stateobj.debt and giveaway_props:
+            print('Trading everything...')
             tmp_lst = []
             cash_to_match = stateobj.debt
             for id in giveaway_props:
