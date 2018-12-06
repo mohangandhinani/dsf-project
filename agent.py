@@ -1,7 +1,8 @@
-from collections import OrderedDict, Counter
-from constants import *
 import copy
 import random
+from collections import OrderedDict, Counter
+
+from constants import *
 
 
 class State(object):
@@ -18,11 +19,12 @@ class State(object):
         self.phase = state[4]
         self.payload = state[5]
         self.debt = state[6][1 if my_id == 0 else 3]
+        self.opponent_debt = state[6][1 if opponent_id == 0 else 3]
         self.previous_states = state[7]
 
 
 class Agent(object):
-    #TODO :: time out decorator
+    # TODO :: time out decorator
     def __init__(self, id):
         self.my_streets = OrderedDict({
             "Orange": {},
@@ -42,6 +44,7 @@ class Agent(object):
         self.unmortgage_cap = 300
         self.buying_limit = 300
         self.auction_limit = 200
+        self.profitable_deal_threshold = 100
         self.mortagaged_cgs = []  # tuple of color, id, unmortgage price
         self.opp_streets = OrderedDict({
             "Orange": {},
@@ -245,7 +248,7 @@ class Agent(object):
         # sell rail road
         marker = []
         for id, price in self.rail_roads.items():
-            self.mortagaged_cgs.append(("Railroad",id,price*0.55))
+            self.mortagaged_cgs.append(("Railroad", id, price * 0.55))
             mortagage_properties_result.append(id)
             debt_left -= 0.5 * price
             marker.append(id)
@@ -397,16 +400,91 @@ class Agent(object):
             return []
         return [(k, v) for k, v in result_dict.items()]
 
-    def respondTrade(self, stateobj):
-        # Do not trade utility if he already has one
-        # Do not accept reverse order preference of street class
-        # Do not accept if opponent is in debt
-        # Check if opponent CG is getting formed & (do not give that property OR ask for huge sum)
-        # If property offered is mortgaged, offer a higher price
-        if random.random() > 0.5:
+    def my_assert_value(self, state):
+        asset_value = 0
+        for colour, dct in self.my_streets.items():
+            for id, tup in dct.items():
+                asset_value += tup[2]
+        for id, price in self.utilities.items():
+            asset_value += price
+        for id, price in self.rail_roads.items():
+            asset_value += price
+        return asset_value
+
+    def value_of_properties(self, properties_lst):
+        total_value = 0
+        for id in properties_lst:
+            if id in self.opp_mortgaged_props:
+                total_value += board[id]["price"] * 0.45
+            else:
+                total_value += board[id]["price"]
+        return total_value
+
+    def net_trade_deal_amount(self, cash_offered, cash_requested, properties_offered, properties_requested):
+        return cash_offered + self.value_of_properties(properties_offered) - cash_requested - self.value_of_properties(
+            properties_requested)
+
+    def check_if_any_property_cg(self, properties_requested):
+        for prop_id in properties_requested:
+            color = board[prop_id]["monopoly"]
+            if color in self.monopoly_set:
+                return  True
+        return False
+
+    def can_opponent_form_cg(self, properties_lst):
+        for id in properties_lst:
+            space = board[id]
+            # Check if his street monopoly is getting formed
+            monopoly = space['monopoly']
+            if monopoly == "Street":
+                if space['monopoly_size'] - len(self.opp_streets[monopoly]) == 1 :
+                    return  True
+            # Check if his utility monopoly is getting formed
+            if space['monopoly_size'] - len(self.opp_utilities) == 1:
+                return  True
+            # Check if his railroad monopoly is getting formed
+            if space['monopoly_size'] - len(self.opp_rail_roads) == 1:
+                return  True
+
+
+    def asking_for_another_railroad(self, properties_lst):
+        if len(self.opp_rail_roads):
+            #find second rail road
+            for id in properties_lst:
+                space = board[id]
+                if space["monopoly"] == "Railroad":
+                    return True
+        return False
+
+    def respondTrade(self, state):
+        stateobj = self.get_state_object(state)
+        self.update_my_properties(stateobj)
+        self.update_opp_props(stateobj)
+        cash_offer, properties_offered, cash_requested, properties_requested = stateobj.payload
+        # Do not accept if opponent is in debt(ignoring my debt here)
+        if stateobj.opponent_debt > 0:
             return False
+
+        #TODO :: build cost* houses also consider
+        net_amount = self.net_trade_deal_amount(cash_offer, cash_requested, properties_offered, properties_requested)
+
+        # You are not in debt
+        if net_amount > self.profitable_deal_threshold:
+            #if he is asking our cg reject
+            if self.check_if_any_property_cg(properties_requested):
+                return False
+            # if his cg complete then also reject
+            if self.can_opponent_form_cg(properties_requested):
+                return False
+            #if asking for another rail road reject
+            if self.asking_for_another_railroad(properties_requested):
+                return  False
+            else:
+                return True
         else:
-            return True
+            return  False
+
+
 
     def update_opp_props(self, stateobj):
         opp_id = self.get_other_agent()
@@ -459,7 +537,7 @@ class Agent(object):
                 tmp_lst = []
                 cash_to_match = board[prop]['price'] + stateobj.debt
                 for id in useless_props:
-                    #trying all combinations of useless prop and prop to offer
+                    # trying all combinations of useless prop and prop to offer
                     cash_to_match -= board[id]['price']
                     tmp_lst.append(id)
                     if cash_to_match > 0:
@@ -479,7 +557,7 @@ class Agent(object):
         # & give prop without forming cg to him
         if len(self.rail_roads) > 0 and len(self.opp_rail_roads) > 0:
             tmp_lst = []
-            id= list(self.opp_rail_roads.keys())[0]
+            id = list(self.opp_rail_roads.keys())[0]
             cash_to_match = board[id]['price'] + stateobj.debt
             for useless_prop in useless_props:
                 cash_to_match -= board[useless_prop]['price']
@@ -624,5 +702,3 @@ class Agent(object):
 
     def receiveState(self, state):
         pass
-
-
