@@ -96,7 +96,7 @@ class Agent(object):
                 if lst_houses:
                     return "B", lst_houses
             # Randomise unmortgage & trade
-            if random.randint(1, 101) % 2:
+            if random.randint(1, 101) % 3:
                 lst_properties = self.unmortgage_property(stateobj)
                 if lst_properties:
                     return "M", lst_properties
@@ -110,10 +110,13 @@ class Agent(object):
             if lst_houses:
                 return "S", lst_houses
             # TODO: randomise mortgage & trade
-            # mortgage
-            lst_properties = self.mortagage_properties(stateobj)
-            if lst_properties:
-                return "M", lst_properties
+            # mortgage or trade
+            if random.randint(1, 101) % 3:
+                lst_properties = self.mortagage_properties(stateobj)
+                if lst_properties:
+                    return "M", lst_properties
+            else:
+                return self.get_trade_option(stateobj)
 
         return self.get_trade_option(stateobj)
 
@@ -582,9 +585,11 @@ class Agent(object):
                     cash_req = abs(cash_to_match)
                     return 'T', 0, tmp_lst, cash_req, []
 
+        return None
+
     def buyProperty(self, state):
-        # TODO: call update_my_properties??
         stateobj = self.get_state_object(state)
+        self.update_my_properties(stateobj)
 
         # Check if we reached buying cap
         if stateobj.my_cash <= self.buying_limit:
@@ -632,8 +637,12 @@ class Agent(object):
             return False
 
     def auctionProperty(self, state):
-        # TODO: call update_my_properties??
         stateobj = self.get_state_object(state)
+        self.update_my_properties(stateobj)
+
+        # if cash less than limit don't bid
+        if stateobj.my_cash <= self.auction_limit:
+            return 0
 
         # get property ID
         propid = stateobj.payload[0]
@@ -650,19 +659,26 @@ class Agent(object):
         # Check if property is imp to u
         # Then bid for prop val + 1
         # Check if it is forming monopoly
+        bid = 0
         if space['class'] == 'Street':
             monopoly_size = space['monopoly_size']
             num_props_cg = len(self.my_streets[space['monopoly']])
             if num_props_cg + 1 == monopoly_size:
-                return space['price'] + 1
+                bid = space['price'] + 1
         # Check if it is second rail road or more
         if space['class'] == 'Railroad' and \
                 len(self.rail_roads) > 1:
-            return space['price'] + 1
+            bid = space['price'] + 1
         # Check if it is second utility
         if space['class'] == 'Utility' and \
                 len(self.utilities) > 1:
-            return 0.8 * space['price'] + 1
+            bid = 0.8 * space['price'] + 1
+
+        # Check if bid is greater than available cash
+        if stateobj.my_cash <= bid:
+            return 100
+        elif bid:
+            return bid
 
         # Check if property imp for him
         propertyStatus = [prop for prop in state[1]]
@@ -675,16 +691,23 @@ class Agent(object):
         if is_imp:
             # if his cash is less, his cash + 1
             if stateobj.opponent_cash < space['price']:
-                return stateobj.opponent_cash + 1
+                bid = stateobj.opponent_cash + 1
             else:
                 # else he has cash but wants to buy for less, 0.9 * prop val
-                return 0.9 * space['price']
+                bid = 0.9 * space['price']
+
+        # Check if bid is greater than available cash
+        if stateobj.my_cash <= bid:
+            return 100
+        elif bid:
+            return bid
 
         # TODO: keep checking prev pattern from receive state
         # then get all formulas & apply
 
         # generically, bid for 0.5 * prop val + 1
-        return 0.5 * space['price'] + 1
+        default = 0.5 * space['price'] + 1
+        return default if default + 100 < stateobj.my_cash else 100
 
     def jailDecision(self, state):
         stateobj = self.get_state_object(state)
