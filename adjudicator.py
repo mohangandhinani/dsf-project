@@ -569,9 +569,6 @@ class Adjudicator:
 
             intent = action[0]
 
-            # if not self.bsmt_input_validator(action):
-            #	return False
-
             if intent == "B":
                 return handleBuy(agent, action[1])
 
@@ -594,11 +591,10 @@ class Adjudicator:
         # TODO:merging of states; and hiding the bmst decison of first agent to the second
 
         while True:
-
             self.updateState(state, self.PHASE_NUMBER_INDEX, None, self.BSTM)
 
             bstmActionAgentOne = self.runPlayerOnStateWithTimeout(self.agentOne, state)
-
+            print('Action given: ', bstmActionAgentOne)
             if (isinstance(bstmActionAgentOne, list) or isinstance(bstmActionAgentOne, tuple)) and not agentOneDone:
                 if not takeBMSTAction(self.agentOne, self.agentTwo, bstmActionAgentOne):
                     agentOneDone = True
@@ -1554,6 +1550,9 @@ class Adjudicator:
         if winner == 1:
             log("win", "AgentOne won the Game.")
         elif winner == 2:
+            stateForLog = list(self.state)
+            stateForLog.pop(7)
+            log('win', stateForLog)
             log("win", "AgentTwo won the Game.")
         else:
             log("win", "It's a Tie!")
@@ -1601,6 +1600,7 @@ class Adjudicator:
             action = player.receiveState(stateToBeSent)
         elif current_phase == self.BSTM:
             action = player.getBSMTDecision(stateToBeSent)
+            log('bstm', 'Action chosen by {} {}'.format(player.id, action))
         elif current_phase == self.TRADE_OFFER:
             action = player.respondTrade(stateToBeSent)
         elif current_phase == self.BUYING:

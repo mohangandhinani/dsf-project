@@ -8,8 +8,8 @@ verbose = {'pay': True, #Player has a debt to pay handle_payments method
            'state': True, #state information during each turn
            'dice': True, #dice value for each turn
            'board':False,
-           'win_condition':False, #information of how winner was chosen
-           'turn':False, #info about turn
+           'win_condition':True, #information of how winner was chosen
+           'turn':True, #info about turn
            'jail':True, #info if player goes to jail
            'win':True #who finally won
            }

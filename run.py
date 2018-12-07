@@ -1,13 +1,15 @@
 from adjudicator import Adjudicator
 from greedyAgent import GreedyAgent
 from randomAgent import RandomAgent
+from property_greedy_agent import PropertyGreedyAgent
 from agent import Agent
 
 
 def runAgents():
-    agentOne = GreedyAgent(1)
-    agentTwo = Agent(2)
-    # agentOne = RandomAgent(1)
+    # agentTwo = GreedyAgent(2)
+    agentOne = Agent(1)
+    agentTwo = RandomAgent(2)
+    # agentTwo = PropertyGreedyAgent(2)
     adjudicator = Adjudicator()
     result = adjudicator.runGame(agentOne, agentTwo)
     return result[0]
