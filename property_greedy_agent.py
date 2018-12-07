@@ -37,14 +37,14 @@ class PropertyGreedyAgent(object):
         self.monopoly_set = set()
         #Not using ordered dict here as there is no preference order
         self.my_streets = {
-            "Orange": {},
-            "Red": {},
+            "Pink": {},
+            "Brown": {},  # key is id value is (buildcost, num houses, price)
             "Yellow": {},
             "Light Blue": {},
-            "Brown": {},  # key is id value is (buildcost, num houses, price)
-            "Green": {},
             "Dark Blue": {},
-            "Pink": {}
+            "Red": {},
+            "Green": {},
+            "Orange": {},
         }
         self.utilities = {}
         self.rail_roads = {}  # id:price
@@ -55,14 +55,14 @@ class PropertyGreedyAgent(object):
         self.profitable_deal_threshold = 100
         self.mortagaged_cgs = []  # tuple of color, id, unmortgage price
         self.opp_streets = {
-            "Orange": {},
-            "Red": {},
-            "Yellow": {},
-            "Light Blue": {},
+            "Pink": {},
             "Brown": {},  # key is id value is (buildcost, num houses, price)
-            "Green": {},
+            "Yellow": {},
             "Dark Blue": {},
-            "Pink": {}
+            "Light Blue": {},
+            "Red": {},
+            "Green": {},
+            "Orange": {},
         }
         self.opp_utilities = {}
         self.opp_rail_roads = {}  # id:price
