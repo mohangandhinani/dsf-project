@@ -6,9 +6,8 @@ Monopoly game playing AI Agent
 ## Run the code
 
 
-## Files
-## Random Agent
-[Random Agent](/gym-rl/gym_rl/envs/rl_env.py)
+## Agents
+**[Reinforcement Learning Agent](/gym-rl/gym_rl/envs/rl_env.py)**
 
 **agent.py:**
 >Consists of configurations for logging to the monopoly.log file. You can modify the verbosity of logging for different flows of the adjudicator here.
