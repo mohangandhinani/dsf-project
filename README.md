@@ -5,7 +5,7 @@ Monopoly game playing Agent
 
 ## Run the code
 ```
-Running the Simulator:
+Running the simulator:
 python3 run.py
 
 Running the agents individually:
