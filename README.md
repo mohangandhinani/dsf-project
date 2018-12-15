@@ -5,14 +5,14 @@ Monopoly game playing Agent
 
 ## Run the code
 ```
-Running Agents
-python3 rl_env.py
+Running the Simulator:
+python3 run.py
+
+Running the agents individually:
 python3 agent.py
 python3 randomAgent.py
 python3 property_greedy_agent.py
-
-Running Comparator
-python3 run.py
+python3 rl_env.py
 ```
 
 ## Agents
@@ -20,13 +20,13 @@ python3 run.py
 > Contains all the code which implements the strategic agent 
 
 **[Random Agent](randomAgent.py)**
-> This is a base line agent. All the decisions taken by the agent are random and chosen from a leagal action space. 
+> This is a baseline agent. All the decisions taken by the agent are random and chosen from a legal action space. 
 
 **[Greedy Agent](property_greedy_agent.py)**
-> This is also a baseline agent .This agent greedly tries to maximize the properties acquired.
+> This is also a baseline agent. This agent greedily tries to maximize the properties acquired.
 
 **[Reinforcement Learning Agent](/gym-rl/gym_rl/envs/rl_env.py)**
-> Constains all the code which implements the reinforcewment learning based agent
+> Contains all the code which implements the Reinforcement Learning based agent
 
 ## Supporting files
 **[Agents comparator](run.py)**
@@ -36,7 +36,7 @@ python3 run.py
 > This is a helper file which has all the constants used by different agents
 
 **[gym environment](gym-rl)**
-> contains all the files needed for creating gym environment
+> Contains all the files needed for creating gym environment
 
 ## Performance comparision of the strategic agent
 ![abc](https://user-images.githubusercontent.com/31523851/50037328-01a1be80-ffde-11e8-9e58-1c5a874aea42.JPG)
