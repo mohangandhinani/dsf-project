@@ -1,20 +1,37 @@
 # Monopoly
 
 Data Science Project CSE 519
-Monopoly game playing AI Agent
+Monopoly game playing Agent
 
 ## Run the code
+```
+Running Agents
+python3 rl_env.py
+python3 agent.py
+python3 randomAgent.py
+python3 property_greedy_agent.py
 
+Running Comparator
+python3 run.py
+```
 
 ## Agents
+**[Strategic Agent](agent.py)**
 **[Reinforcement Learning Agent](/gym-rl/gym_rl/envs/rl_env.py)**
 
-**agent.py:**
->Consists of configurations for logging to the monopoly.log file. You can modify the verbosity of logging for different flows of the adjudicator here.
+** Baseline Agents **
+**[Random Agent](randomAgent.py)**
+**[Greedy Agent](property_greedy_agent.py)**
 
-**constants.py:**
->Contains the constant representations such as the board, chance cards and community chest cards that remain static throughout the runtime of the game.
 
-**testcases.py:**
->Consists of all the testcases written for and tested against the adjudicator. Each testcase contains a short description regarding what it is testing. The testcases each define their own Agents to suit their testing requirements. The testcases each receive an instance of the adjudicator as an argument and perform testcase validation by invoking the runGame method and observing the final results.
-The program accepts an Adjudicator and 2 Agents as arguments and checks whether the testcase passes for the simulation run.
+
+## Supporting files
+**[Agents comparator](run.py)**
+> Agent comparator invokes different agents and runs games against two agents and presents the win statistics.
+
+**[Agent Constants](agent_constants.py)**
+> This is a helper file which has all the constants used by different agents
+
+**[gym environment](gym-rl)**
+> containsts all the files needed for creating gym environment
+
