@@ -37,7 +37,7 @@ python3 run.py
 > This is a helper file which has all the constants used by different agents
 
 **[gym environment](gym-rl)**
-> containsts all the files needed for creating gym environment
+> contains all the files needed for creating gym environment
 
 ## Performance comparision of the strategic agent
 ![abc](https://user-images.githubusercontent.com/31523851/50037328-01a1be80-ffde-11e8-9e58-1c5a874aea42.JPG)
