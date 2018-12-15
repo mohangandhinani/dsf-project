@@ -17,12 +17,16 @@ python3 run.py
 
 ## Agents
 **[Strategic Agent](agent.py)**
+> Contains all the code which implements the strategic agent 
+
 **[Reinforcement Learning Agent](/gym-rl/gym_rl/envs/rl_env.py)**
+> Constains all the code which implements the reinforcewment learning based agent
 
-** Baseline Agents **
 **[Random Agent](randomAgent.py)**
-**[Greedy Agent](property_greedy_agent.py)**
+> This is a base line agent. All the decisions taken by the agent are random and chosen from a leagal action space. 
 
+**[Greedy Agent](property_greedy_agent.py)**
+> This is also a baseline agent .This agent greedly tries to maximize the properties acquired.
 
 
 ## Supporting files
@@ -35,3 +39,5 @@ python3 run.py
 **[gym environment](gym-rl)**
 > containsts all the files needed for creating gym environment
 
+## Performance comparision of the strategic agent
+![abc](https://user-images.githubusercontent.com/31523851/50037328-01a1be80-ffde-11e8-9e58-1c5a874aea42.JPG)
